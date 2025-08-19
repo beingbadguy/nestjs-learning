@@ -52,7 +52,6 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateToken(
       userExists._id.toString(),
     );
-    console.log(accessToken);
 
     const response = {
       _id: userExists._id,
@@ -103,7 +102,24 @@ export class AuthService {
     });
 
     await newUser.save();
-    this.generateToken(newUser._id.toString());
+    const { refreshToken, accessToken } = await this.generateToken(
+      newUser._id.toString(),
+    );
+
+    const response = {
+      _id: newUser._id,
+      username: newUser.username,
+      email: newUser.email,
+      accessToken,
+      refreshToken,
+    };
+
+    return {
+      message: 'User created successfully',
+      data: response,
+      statusCode: 201,
+      success: true,
+    };
   }
 
   //TODO: Generate Token
@@ -113,6 +129,8 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload);
     // Here you would typically also create a refresh token and save it to the database
     const refreshToken = uuidv4();
+
+    // storing in db
 
     await this.storeRefreshToken(refreshToken, userId);
 
@@ -126,7 +144,11 @@ export class AuthService {
   async storeRefreshToken(refreshToken: string, userId: string) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 3);
-    await this.refreshTokenModel.create({ refreshToken, userId, expiresAt });
+    await this.refreshTokenModel.findOneAndUpdate(
+      { userId },
+      { refreshToken, expiresAt },
+      { upsert: true, new: true },
+    );
   }
 
   async refreshToken(refreshToken: refreshTokenDTO) {
