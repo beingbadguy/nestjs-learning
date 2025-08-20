@@ -26,5 +26,10 @@ export class User {
     enum: ['user', 'admin', 'superadmin'],
   })
   role: string;
+
+  @Prop({ required: false })
+  resetToken: string;
+  @Prop({ required: false })
+  resetTokenExpiration: Date;
 }
 export const UserSchema = SchemaFactory.createForClass(User);

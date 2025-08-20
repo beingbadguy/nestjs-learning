@@ -9,6 +9,7 @@ import { AuthService } from './auth/auth.service';
 import { AuthModule } from './auth/auth.module';
 import mongoose from 'mongoose';
 import { JwtModule, JwtService } from '@nestjs/jwt';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
     }),
     UsersModule,
     AuthModule,
+    EmailModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService, AuthService],

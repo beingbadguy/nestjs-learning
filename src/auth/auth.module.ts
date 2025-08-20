@@ -4,8 +4,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from 'src/users/users.module';
 import { JwtService } from '@nestjs/jwt';
 
+import { EmailModule } from 'src/email/email.module';
+
 @Module({
-  imports: [MongooseModule, UsersModule],
+  imports: [MongooseModule, UsersModule, EmailModule],
   providers: [AuthService, JwtService],
 })
 export class AuthModule {}

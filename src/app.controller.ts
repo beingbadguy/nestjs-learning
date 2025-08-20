@@ -18,3 +18,4 @@ export class AppController {
     return { message: 'This is a protected route', userId: request.userId };
   }
 }
+

@@ -15,6 +15,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RefreshToken } from 'src/users/schema/refreshtoken.schema';
 import { refreshTokenDTO } from './dto/refreshtoken.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     @InjectModel(RefreshToken.name)
     private readonly refreshTokenModel: Model<RefreshToken>,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   //TODO: LOGIN
@@ -167,5 +169,126 @@ export class AuthService {
     }
 
     return this.generateToken(existingToken.userId.toString());
+  }
+
+  async resetPassword(
+    oldPassword: string,
+    newPassword: string,
+    userId: string,
+  ) {
+    if (!oldPassword || !newPassword) {
+      throw new BadRequestException('Enter password carefully');
+    }
+
+    // check newPassword length
+    if (newPassword.length < 6) {
+      throw new BadRequestException('Password length must be 6 or more');
+    }
+
+    if (!userId) {
+      throw new UnauthorizedException('Invalid user, please login again');
+    }
+
+    if (oldPassword === newPassword) {
+      throw new BadRequestException(
+        'New password cannot be same as old password',
+      );
+    }
+    const user = await this.userModel.findById(userId);
+    console.log(user, ' : THIS IS THE USER');
+    if (!user) {
+      throw new BadRequestException('Invalid User, Please login again');
+    }
+
+    const isOldPasswordCorrect = await bcrypt.compare(
+      oldPassword,
+      user.password,
+    );
+    if (!isOldPasswordCorrect) {
+      throw new BadRequestException('Please enter the correct old password');
+    }
+
+    const isNewPasswordSameAsOld = await bcrypt.compare(
+      newPassword,
+      user.password,
+    );
+
+    if (isNewPasswordSameAsOld) {
+      throw new BadRequestException(
+        'New password cannot be same as the old password!',
+      );
+    }
+
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+    if (user) {
+      user!.password = newHashedPassword;
+    }
+
+    await user?.save();
+
+    return {
+      message: 'Password changed successfully!',
+      data: user,
+      success: true,
+    };
+  }
+
+  async forgetPassword(email: string) {
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+    const user = await this.userModel.findOne({ email });
+    if (!user) {
+      throw new BadRequestException('User not found with this email');
+    }
+    const token = uuidv4(); // Generate a unique token for password reset
+
+    user.resetToken = token;
+    user.resetTokenExpiration = new Date(Date.now() + 3600000); // Token
+
+    const resetLink = `http://yourapp.com/reset-password?token=${token}`;
+
+    await this.emailService.sendMail(
+      email,
+      'Password Reset Request',
+      `You requested a password reset. Click the link below to reset your password:\n${resetLink}`,
+      `<p>You requested a password reset. Click the link below to reset your password:</p><a href="${resetLink}">Reset Password</a>`,
+    );
+
+    await user.save();
+
+    // Here you would typically send a reset password email with a token
+    // For simplicity, we will just return a success message
+    return {
+      message: 'Reset password email sent successfully',
+      success: true,
+    };
+  }
+
+  async resetPasswordWithToken(token: string, newPassword: string) {
+    if (!token || !newPassword) {
+      throw new BadRequestException('Token and new password are required');
+    }
+
+    const user = await this.userModel.findOne({
+      resetToken: token,
+      resetTokenExpiration: { $gt: new Date() },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired token');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetToken = '';
+    user.resetTokenExpiration = new Date();
+
+    await user.save();
+
+    return {
+      message: 'Password reset successfully',
+      success: true,
+    };
   }
 }
